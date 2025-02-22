@@ -1,65 +1,77 @@
 pipeline {
-    agent any
+    agent { label 'jappbuildserver1' }    
+
     tools {
-        maven 'maven'
+        // Install the Maven version configured as "maven" and add it to the path.
+        maven "maven"
     }
-    options {
-        buildDiscarder logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '', daysToKeepStr: '', numToKeepStr: '3')
-    }
-    environment {
-        dockerhub_cred = credentials('dockerhub_cred')
-    }
+
+    environment {    
+        DOCKERHUB_CREDENTIALS = credentials('dockerloginid')
+    } 
+    
     stages {
-        stage('Cleanup') {
+        stage('SCM Checkout') {
             steps {
-                cleanWs()
-            }
-        }
-        stage('Checkout') {
-            steps {
-                checkout([$class: 'GitSCM',
-                    branches: [[name: 'main']],  
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/cloudpost03/staragile-insurance-project.git',
-                        credentialsId: 'git_cred'
-                    ]],
-                    extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'staragile-insurance-project']]
+                checkout([$class: 'GitSCM', 
+                    userRemoteConfigs: [[url: 'https://github.com/cloudpost03/BankingApp.git']], 
+                    extensions: [[$class: 'RelativeTargetDirectory', relativeTargetDir: 'BankingApp']]
                 ])
             }
         }
-        stage('Build') {
+        stage('Maven Build') {
             steps {
-                dir('staragile-insurance-project') {
-                    script {
-                        if (fileExists('pom.xml')) {
-                            sh 'mvn clean package'
-                        } else {
-                            error 'pom.xml not found. Verify the repository checkout.'
-                        }
-                    }
+                dir('BankingApp') {
+                    sh "mvn -Dmaven.test.failure.ignore=true clean package"
                 }
-            }  
+            }
         }
         stage('Docker Build') {
-    steps {
-        dir('star-agile-insurance-project') {
-            sh 'sudo docker build -t pravinkr11/insuranceproject:1.0 .'
+            steps {
+                dir('BankingApp') {
+                    sh 'docker build -t pravinkr11/bankingapp:1.0 .'
+                }
+            }
         }
-    }
-}
-stage('Docker Push') {
-    steps {
-        dir('star-agile-insurance-project') {
-            sh 'echo $dockerhub_cred_PSW | sudo docker login -u $dockerhub_cred_USR --password-stdin'
-            sh 'sudo docker push pravinkr11/insuranceproject:1.0'
-        }
-    }
-}
         stage('Docker Push') {
             steps {
-                dir('staragile-insurance-project') {
-                    sh 'echo $dockerhub_cred_PSW | docker login -u $dockerhub_cred_USR --password-stdin'
-                    sh 'docker push pravinkr11/insuranceproject:1.0'
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub_cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                        sh 'docker push pravinkr11/bankingapp:1.0'
+                    }
+                }
+            }
+        }
+        stage('Deploy to Kubernetes Dev Environment') {
+            steps {
+                script {
+                    sshPublisher(
+                        publishers: [
+                            sshPublisherDesc(
+                                configName: 'Kubernetes', 
+                                transfers: [
+                                    sshTransfer(
+                                        cleanRemote: false, 
+                                        excludes: '', 
+                                        execCommand: 'kubectl apply -f kubernetesdeploy.yaml', 
+                                        execTimeout: 120000, 
+                                        flatten: false, 
+                                        makeEmptyDirs: false, 
+                                        noDefaultExcludes: false, 
+                                        patternSeparator: '[, ]+', 
+                                        remoteDirectory: '.', 
+                                        remoteDirectorySDF: false, 
+                                        removePrefix: '', 
+                                        sourceFiles: '*.yaml'
+                                    )
+                                ], 
+                                usePromotionTimestamp: false, 
+                                useWorkspaceInPromotion: false, 
+                                verbose: false
+                            )
+                        ]
+                    )
                 }
             }
         }
