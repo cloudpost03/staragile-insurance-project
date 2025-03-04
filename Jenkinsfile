@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_IMAGE = "star-Agile-Insurance"
+        DOCKER_IMAGE = "star-agile-insurance"
         DOCKER_TAG = "latest"
         DOCKER_REGISTRY = "pravinkr11"
         MAVEN_PATH = sh(script: 'which mvn', returnStdout: true).trim()
