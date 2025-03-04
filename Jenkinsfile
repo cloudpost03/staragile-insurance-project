@@ -17,7 +17,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout([$class: 'GitSCM',
-                    branches: [[name: '*/master']], 
+                    branches: [[name: '*/main']], 
                     userRemoteConfigs: [[
                         url: 'https://github.com/cloudpost03/staragile-insurance-project.git',
                         credentialsId: 'github_cred'
