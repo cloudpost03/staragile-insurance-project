@@ -19,7 +19,7 @@ pipeline {
                 checkout([$class: 'GitSCM',
                     branches: [[name: '*/master']], 
                     userRemoteConfigs: [[
-                        url: 'https://github.com/cloudpost03/',
+                        url: 'https://github.com/cloudpost03/staragile-insurance-project.git',
                         credentialsId: 'github_cred'
                     ]]]
                 )
